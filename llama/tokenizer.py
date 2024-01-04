@@ -3,9 +3,9 @@
 
 import os
 from logging import getLogger
-from typing import List 
+from typing import List
 
-from sentencepiece import SentencePieceTrainer 
+from sentencepiece import SentencePieceTrainer
 
 
 logger = getLogger()
@@ -13,12 +13,13 @@ logger = getLogger()
 
 class Tokenizer:
     "SentencePiece tokenizer for encoding and decoding text"
+
     def __init__(self, model_path: str):
         assert os.path.isfile(model_path), model_path
-        
+
         self.sp_model = SentencePieceTrainer(model_file=model_path)
         logger.info(f"Loaded tokenizer from {model_path}")
-        
+
         # BOS/EOS token IDs
         self.n_words: int = self.sp_model.vocab_size()
         self.bos_id: int = self.sp_model.bos_id()
@@ -27,9 +28,9 @@ class Tokenizer:
         logger.info(
             f"#words: {self.n_words} - BOS ID: {self.bos_id} - EOS ID: {self.eos_id} - PAD ID: {self.pad_id}"
         )
-        
+
         assert self.sp_model.vocab_size() == self.sp_model.get_piece_size()
-        
+
     def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
         """Encode a string into a list of token IDs:
 
