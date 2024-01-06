@@ -32,6 +32,8 @@ I am reading these papers:
 ### **Related GitHub Works**
 🌐 [pytorch-llama](https://github.com/hkproj/pytorch-llama/tree/main) - PyTorch implementation of LLaMA by Umar Jamil.  
 🌐 [llama](https://github.com/facebookresearch/llama) - Facebook's LLaMA implementation.
+🌐 [tensor2tensor](https://github.com/tensorflow/tensor2tensor) - Google's transformer implementation.
+
 
 ### **Articles**
 ✅ [Understanding SentencePiece ([Under][Standing][_Sentence][Piece])](https://colabdoge.medium.com/understanding-sentencepiece-under-standing-sentence-piece-ac8da59f6b08)
