@@ -15,17 +15,21 @@ I am reading these papers:
 
 
 ### **Goals**
+- ✅ Understand the concept of dot product of two matrices. 
+- ✅ Understand the concept of autoregressive language models.
+- ✅ Understand the concept of attention computation.
+- ✅ Understand the workings of `Byte-Pair Encoding` (BPE) algorithm and tokenizer. 
+- ✅ Read the workings of the `SentencePiece` library and tokenizer.
+- ✅ Understand the concept of tokenization, input ids and embedding vectors.
+- ✅ Understand the concept of positional encoding.
+- ✅ Understand the concept of single head self-attention.
+- ✅ Understand the concept of scaled dot-product attention.
+- ✅ Understand the concept of multi-head attention.
+- ✅ Understand the concept of layer normalization.
+- ✅ Understand the concept of masked multi-head attention & softmax layer.
+- [ ] Understand and implement the rotatory positional encoding.
 - [ ] Understand and implement grouped query attention from scratch.
 - [ ] Understand and implement the concept of KV cache.
-- [ ] Understand and implement the rotatory positional encoding.
-- [x] Understand & implement the workings of the `SentencePiece` tokenizer.
-- [x] Understand the workings of `Byte-Pair Encoding` (BPE) algorithms. 
-- [ ] Understand & implement the concept of multi-head attention.
-- [ ] Understand & implement the concept of self-attention.
-- [x] Understand & implement the concept of attention.
-- [ ] Understand & implement the concept of positional encoding.
-- [ ] Understand & implement the concept of scaled dot-product attention.
-- [x] Understand the concept of autoregressive language models.
 - [ ] Adding ...
 
 
