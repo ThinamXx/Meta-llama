@@ -7,7 +7,8 @@ I am reading these papers:
 ☑️ [LLaMA: Open and Efficient Foundation Language Models](https://ai.meta.com/research/publications/llama-open-and-efficient-foundation-language-models/)  
 ☑️ [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/)  
 ✅ [Attention Is All You Need](https://arxiv.org/abs/1706.03762)  
-☑️ [OPT: Open Pre-trained Transformer Language Models](https://arxiv.org/abs/2205.01068)
+☑️ [OPT: Open Pre-trained Transformer Language Models](https://arxiv.org/abs/2205.01068)  
+☑️ [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467)
 
 
 ### **Goals**
@@ -23,6 +24,7 @@ I am reading these papers:
 ✅ Understand & implement the concept of multi-head attention.  
 ✅ Understand & implement the concept of layer normalization.  
 ✅ Understand the concept of masked multi-head attention & softmax layer.  
+☑️ Understand the concept of RMSNorm and difference with LayerNorm.
 ☑️ Understand and implement the rotatory positional encoding.   
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
@@ -32,7 +34,8 @@ I am reading these papers:
 ### **Related GitHub Works**
 🌐 [pytorch-llama](https://github.com/hkproj/pytorch-llama/tree/main) - PyTorch implementation of LLaMA by Umar Jamil.  
 🌐 [llama](https://github.com/facebookresearch/llama) - Facebook's LLaMA implementation.  
-🌐 [tensor2tensor](https://github.com/tensorflow/tensor2tensor) - Google's transformer implementation.
+🌐 [tensor2tensor](https://github.com/tensorflow/tensor2tensor) - Google's transformer implementation.  
+🌐 [rmsnorm](https://github.com/bzhangGo/rmsnorm) - RMSNorm implementation.
 
 
 ### **Articles**
