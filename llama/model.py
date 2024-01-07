@@ -54,16 +54,28 @@ class PositionalEncoding(nn.Module):
 
 
 class LayerNormalization(nn.Module):
-    def __init__(self, eps: float = 10**-6):
+    def __init__(self, features: int, eps: float = 1e-6):
         super().__init__()
-        self.gamma = nn.Parameter(torch.ones(1))  # mulitplicative parameter
-        self.beta = nn.Parameter(torch.zeros(1))  # additive parameter
+        self.gamma = nn.Parameter(torch.ones(features))  # mulitplicative parameter
+        self.beta = nn.Parameter(torch.zeros(features))  # additive parameter
         self.eps = eps
 
     def forward(self, x):
         mean = x.mean(dim=-1, keepdim=True)
         std = x.std(dim=-1, keepdim=True)
         return self.gamma * (x - mean) / (std + self.eps) + self.beta
+
+
+class RMSNorm(nn.Module):
+    def __init(self, features: int, eps: float = 1e-8):
+        super().__init__()
+        self.eps = eps
+        self.gamma = nn.Parameter(torch.ones(features)) # mulitplicative parameter
+        self.beta = nn.Parameter(torch.zerso(features)) # additive parameter
+    
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True))
+        return self.gamma * (x) / (rms + self.eps) + self.beta
 
 
 class FeedForwardBlock(nn.Module):
