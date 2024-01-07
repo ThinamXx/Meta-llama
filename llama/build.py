@@ -8,9 +8,9 @@ from model import (
     MultiHeadAttention,
     FeedForwardBlock,
     Transformer,
+    ProjectionBlock
 )
 
-import torch
 import torch.nn as nn
 
 
@@ -43,12 +43,12 @@ def build_transformer(
             ]
         )
     )
-    
+
     decoder = Decoder(
         nn.ModuleList(
             [
                 DecoderBlock(
-                    MultiHeadAttention(d_model, n_heads, dropout), 
+                    MultiHeadAttention(d_model, n_heads, dropout),
                     MultiHeadAttention(d_model, n_heads, dropout),
                     FeedForwardBlock(d_model, d_ff, dropout),
                     dropout,
@@ -57,3 +57,20 @@ def build_transformer(
             ]
         )
     )
+    
+    projection_layer = ProjectionBlock(d_model, tgt_vocab_size)
+    
+    transformer = Transformer(
+        encoder, 
+        decoder, 
+        src_embed,
+        tgt_embed, 
+        src_pos_encod,
+        tgt_pos_encod,
+        projection_layer
+    )
+    for p in transformer.parameters():
+        if p.dim() > 1:
+            nn.init.xavier_uniform_(p)
+    
+    return transformer
