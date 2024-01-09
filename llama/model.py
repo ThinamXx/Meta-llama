@@ -2,6 +2,8 @@ import math
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from typing import Optional
 
 
 class Embeddings(nn.Module):
@@ -70,9 +72,9 @@ class RMSNorm(nn.Module):
     def __init(self, features: int, eps: float = 1e-8):
         super().__init__()
         self.eps = eps
-        self.gamma = nn.Parameter(torch.ones(features)) # mulitplicative parameter
-        self.beta = nn.Parameter(torch.zerso(features)) # additive parameter
-    
+        self.gamma = nn.Parameter(torch.ones(features))  # mulitplicative parameter
+        self.beta = nn.Parameter(torch.zerso(features))  # additive parameter
+
     def forward(self, x):
         rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True))
         return self.gamma * (x) / (rms + self.eps) + self.beta
@@ -89,6 +91,35 @@ class FeedForwardBlock(nn.Module):
     def forward(self, x):
         # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_ff) --> (batch_size, seq_len, d_model)
         x = self.linear2(self.dropout(self.relu(self.linear1(x))))
+        return x
+
+
+class FeedForwardBlockLLAMA(nn.Module):
+    """Feed forward block for LLAMA model.
+
+    Args:
+        d_model (int): input dimension of model
+        d_ff (int): hidden dimension of feed forward block
+        ffn_dim_multiplier (int): custom multiplier for hidden dimension of feed forward block
+        multiple_of (int): value to make hidden dimension of feed forward block multiple of
+    """
+    def __init__(self, d_model: int, d_ff: int, ffn_dim_multiplier: Optional[int], multiple_of: int):
+        d_ff = 4 * d_model
+        d_ff = int(2 * d_ff / 3)
+        if ffn_dim_multiplier is not None:
+            d_ff = d_ff * ffn_dim_multiplier
+        # make SwiGLU hidden layer size multiple of large power of 2
+        d_ff = multiple_of * ((d_ff * multiple_of - 1) // multiple_of)
+        
+        self.w_1 = nn.Linear(d_model, d_ff, bias=False)
+        self.w_2 = nn.Linear(d_ff, d_model, bias=False)
+        self.w_3 = nn.Linear(d_model, d_ff, bias=False)
+    
+    def forward(self, x):
+        swish = F.silu(self.w_1(x)) # (batch_size, seq_len, d_ff)
+        x_v = self.w_3(x) # (batch_size, seq_len, d_ff)
+        x = swish * x_v # (batch_size, seq_len, d_ff)
+        x = self.w_2(x) # (batch_size, seq_len, d_model)
         return x
 
 

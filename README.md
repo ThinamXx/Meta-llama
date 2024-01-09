@@ -8,7 +8,8 @@ I am reading these papers:
 ☑️ [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/)  
 ✅ [Attention Is All You Need](https://arxiv.org/abs/1706.03762)  
 ☑️ [OPT: Open Pre-trained Transformer Language Models](https://arxiv.org/abs/2205.01068)  
-☑️ [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467)
+✅ [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467)  
+✅ [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)  
 
 
 ### **Goals 🚀**
@@ -24,7 +25,10 @@ I am reading these papers:
 ✅ Understand & implement the concept of multi-head attention.  
 ✅ Understand & implement the concept of layer normalization.  
 ✅ Understand the concept of masked multi-head attention & softmax layer.  
-☑️ Understand the concept of RMSNorm and difference with LayerNorm.  
+✅ Understand and implement the concept of RMSNorm and difference with LayerNorm.  
+✅ Understand the concept of internal covariate shift.  
+✅ Understand the concept and implementation of feed-forward network with ReLU activation.  
+✅ Understand the concept and implementation of feed-forward network with SwiGLU activation.  
 ☑️ Understand and implement the rotatory positional encoding.   
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
@@ -40,4 +44,5 @@ I am reading these papers:
 
 
 ### **Articles:**
-✅ [Understanding SentencePiece ([Under][Standing][_Sentence][Piece])](https://colabdoge.medium.com/understanding-sentencepiece-under-standing-sentence-piece-ac8da59f6b08)
+✅ [Understanding SentencePiece ([Under][Standing][_Sentence][Piece])](https://colabdoge.medium.com/understanding-sentencepiece-under-standing-sentence-piece-ac8da59f6b08)  
+✅ [SwiGLU: GLU Variants Improve Transformer (2020)](https://kikaben.com/swiglu-2020/#:~:text=The%20FFN%20with%20GELU%20activation%20becomes%3A%20FFN%20GELU,cumulative%20distribution%20function%20of%20the%20standard%20normal%20distribution.)
