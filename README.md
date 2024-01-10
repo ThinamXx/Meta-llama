@@ -10,6 +10,7 @@ I am reading these papers:
 ☑️ [OPT: Open Pre-trained Transformer Language Models](https://arxiv.org/abs/2205.01068)  
 ✅ [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467)  
 ✅ [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)  
+☑️ [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864) 
 
 
 ### **Goals 🚀**
@@ -29,7 +30,7 @@ I am reading these papers:
 ✅ Understand the concept of internal covariate shift.  
 ✅ Understand the concept and implementation of feed-forward network with ReLU activation.  
 ✅ Understand the concept and implementation of feed-forward network with SwiGLU activation.  
-☑️ Understand and implement the rotatory positional encoding.   
+☑️ Understand and implement the rotatory positional embedding.   
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
 ☑️ Adding ...
@@ -40,7 +41,8 @@ I am reading these papers:
 🌐 [pytorch-transformer](https://github.com/hkproj/pytorch-transformer/tree/main) - PyTorch implementation of Transformer by Umar Jamil.  
 🌐 [llama](https://github.com/facebookresearch/llama) - Facebook's LLaMA implementation.  
 🌐 [tensor2tensor](https://github.com/tensorflow/tensor2tensor) - Google's transformer implementation.  
-🌐 [rmsnorm](https://github.com/bzhangGo/rmsnorm) - RMSNorm implementation.
+🌐 [rmsnorm](https://github.com/bzhangGo/rmsnorm) - RMSNorm implementation.  
+🌐 [roformer](https://github.com/ZhuiyiTechnology/roformer) - Rotary Tranformer implementation.
 
 
 ### **Articles:**
