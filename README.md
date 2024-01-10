@@ -30,7 +30,7 @@ I am reading these papers:
 ✅ Understand the concept of internal covariate shift.  
 ✅ Understand the concept and implementation of feed-forward network with ReLU activation.  
 ✅ Understand the concept and implementation of feed-forward network with SwiGLU activation.  
-☑️ Understand and implement the rotatory positional embedding.   
+☑️ Understand and implement the rotary positional embedding.   
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
 ☑️ Adding ...
