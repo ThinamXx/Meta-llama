@@ -6,11 +6,13 @@
 I am reading these papers:  
 ☑️ [LLaMA: Open and Efficient Foundation Language Models](https://ai.meta.com/research/publications/llama-open-and-efficient-foundation-language-models/)  
 ☑️ [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/)  
-✅ [Attention Is All You Need](https://arxiv.org/abs/1706.03762)  
 ☑️ [OPT: Open Pre-trained Transformer Language Models](https://arxiv.org/abs/2205.01068)  
+✅ [Attention Is All You Need](https://arxiv.org/abs/1706.03762)  
 ✅ [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467)  
 ✅ [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)  
-☑️ [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864) 
+☑️ [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864)  
+☑️ [Self-Attention with Relative Position Representations](https://arxiv.org/pdf/1803.02155.pdf)  
+☑️ [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)
 
 
 ### **Goals 🚀**
@@ -30,6 +32,8 @@ I am reading these papers:
 ✅ Understand the concept of internal covariate shift.  
 ✅ Understand the concept and implementation of feed-forward network with ReLU activation.  
 ✅ Understand the concept and implementation of feed-forward network with SwiGLU activation.  
+☑️ Understand the concept of absolute positional encoding.  
+☑️ Understand the concept of relative positional encoding.  
 ☑️ Understand and implement the rotary positional embedding.   
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
