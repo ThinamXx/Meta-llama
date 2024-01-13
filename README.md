@@ -11,7 +11,7 @@ I am reading these papers:
 ✅ [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467)  
 ✅ [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)  
 ☑️ [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864)  
-☑️ [Self-Attention with Relative Position Representations](https://arxiv.org/pdf/1803.02155.pdf)  
+✅ [Self-Attention with Relative Position Representations](https://arxiv.org/pdf/1803.02155.pdf)  
 ☑️ [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)
 
 
@@ -33,7 +33,7 @@ I am reading these papers:
 ✅ Understand the concept and implementation of feed-forward network with ReLU activation.  
 ✅ Understand the concept and implementation of feed-forward network with SwiGLU activation.  
 ☑️ Understand the concept of absolute positional encoding.  
-☑️ Understand the concept of relative positional encoding.  
+✅ Understand the concept of relative positional encoding.  
 ☑️ Understand and implement the rotary positional embedding.   
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
