@@ -6,6 +6,38 @@ import torch.nn.functional as F
 from typing import Optional
 
 
+def precompute_theta_pos_freqs(
+    head_dim: int, seq_len: int, device: str, theta: float = 10000.0
+):
+    # mentioned in 3.2.2 of rotary positional embeddings paper
+    assert head_dim % 2 == 0, "head dimension must be even"
+
+    # (head_dim / 2)
+    theta_num = torch.arange(0, head_dim, 2).float()
+    theta_freqs = 1.0 / theta ** (theta_num / head_dim).to(device)
+
+    m = torch.arange(seq_len, device=device)  # (seq_len)
+    m_theta = torch.outer(m, theta_freqs).float()  # (seq_len, head_dim / 2)
+    freqs_complex = torch.polar(
+        torch.ones_like(m_theta), m_theta
+    )  # (seq_len, head_dim / 2)
+
+    return freqs_complex
+
+
+def apply_rotary_pos_emb(x: torch.Tensor, freqs_complex: torch.Tensor, device: str):
+    # (batch_size, seq_len, head, head / 2)
+    x_transform = torch.view_as_complex(x.float().reshape(*x.shape[:-1], -1, 2))
+    # (seq_len, head, head / 2) --> (1, seq_len, 1, head / 2)
+    freqs_complex_transform = freqs_complex.unsqueeze(0).unsqueeze(2)
+    # (batch_size, seq_len, head, head / 2) * (1, seq_len, 1, head / 2) --> (batch_size, seq_len, head, head / 2
+    x_rotated = x_transform * freqs_complex_transform
+    x_out = torch.view_as_real(x_rotated)  # (batch_size, seq_len, head, head / 2, 2)
+    # (batch_size, seq_len, head, head / 2, 2) --> (batch_size, seq_len, head, head / 2 * 2)
+    x_out = x_out.reshape(*x.shape)
+    return x_out.type_as(x).to(device)
+
+
 class Embeddings(nn.Module):
     """Construct the embeddings.
 
@@ -103,23 +135,30 @@ class FeedForwardBlockLLAMA(nn.Module):
         ffn_dim_multiplier (int): custom multiplier for hidden dimension of feed forward block
         multiple_of (int): value to make hidden dimension of feed forward block multiple of
     """
-    def __init__(self, d_model: int, d_ff: int, ffn_dim_multiplier: Optional[int], multiple_of: int):
+
+    def __init__(
+        self,
+        d_model: int,
+        d_ff: int,
+        ffn_dim_multiplier: Optional[int],
+        multiple_of: int,
+    ):
         d_ff = 4 * d_model
         d_ff = int(2 * d_ff / 3)
         if ffn_dim_multiplier is not None:
             d_ff = d_ff * ffn_dim_multiplier
         # make SwiGLU hidden layer size multiple of large power of 2
         d_ff = multiple_of * ((d_ff * multiple_of - 1) // multiple_of)
-        
+
         self.w_1 = nn.Linear(d_model, d_ff, bias=False)
         self.w_2 = nn.Linear(d_ff, d_model, bias=False)
         self.w_3 = nn.Linear(d_model, d_ff, bias=False)
-    
+
     def forward(self, x):
-        swish = F.silu(self.w_1(x)) # (batch_size, seq_len, d_ff)
-        x_v = self.w_3(x) # (batch_size, seq_len, d_ff)
-        x = swish * x_v # (batch_size, seq_len, d_ff)
-        x = self.w_2(x) # (batch_size, seq_len, d_model)
+        swish = F.silu(self.w_1(x))  # (batch_size, seq_len, d_ff)
+        x_v = self.w_3(x)  # (batch_size, seq_len, d_ff)
+        x = swish * x_v  # (batch_size, seq_len, d_ff)
+        x = self.w_2(x)  # (batch_size, seq_len, d_model)
         return x
 
 
