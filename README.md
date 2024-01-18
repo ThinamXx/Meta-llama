@@ -46,7 +46,8 @@ I am reading these papers:
 🌐 [llama](https://github.com/facebookresearch/llama) - Facebook's LLaMA implementation.  
 🌐 [tensor2tensor](https://github.com/tensorflow/tensor2tensor) - Google's transformer implementation.  
 🌐 [rmsnorm](https://github.com/bzhangGo/rmsnorm) - RMSNorm implementation.  
-🌐 [roformer](https://github.com/ZhuiyiTechnology/roformer) - Rotary Tranformer implementation.
+🌐 [roformer](https://github.com/ZhuiyiTechnology/roformer) - Rotary Tranformer implementation.  
+🌐 [xformers](https://github.com/facebookresearch/xformers) - Facebook's implementation.
 
 
 ### **Articles:**
