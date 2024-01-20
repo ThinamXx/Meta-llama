@@ -14,6 +14,7 @@ from model import (
 import torch.nn as nn
 
 
+# build transformer model
 def build_transformer(
     src_vocab_size: int,
     tgt_vocab_size: int,

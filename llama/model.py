@@ -301,6 +301,7 @@ class EncoderBlock(nn.Module):
 class EncoderBlockLLAMA(nn.Module):
     def __init__(
         self,
+        features: int,
         attention_block: MultiHeadAttentionLLAMA,
         feed_forward_block: FeedForwardBlockLLAMA,
         dropout: float,
@@ -310,14 +311,20 @@ class EncoderBlockLLAMA(nn.Module):
         self.feed_forward_block = feed_forward_block
 
         # normalization before attention block and feed forward block
-        self.attention_block_norm = RMSNorm(attention_block.d_model, eps=1e-5)
-        self.feed_forward_block_norm = RMSNorm(
-            feed_forward_block.w_2.out_features, eps=1e-5
-        )
+        self.attention_block_norm = RMSNorm(features, eps=1e-5)
+        self.feed_forward_block_norm = RMSNorm(features, eps=1e-5)
 
     def forward(self, x, mask, freqs_complex):
-        # TODO: implement forward method for EncoderBlockLLAMA
-        pass
+        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
+        h = x + self.attention_block.forward(
+            self.attention_block_norm(x),
+            self.attention_block_norm(x),
+            self.attention_block_norm(x),
+            mask,
+            freqs_complex,
+        )
+        x = h + self.feed_forward_block.forward(self.feed_forward_block_norm(h))
+        return x
 
 
 class Encoder(nn.Module):
@@ -420,3 +427,74 @@ class Transformer(nn.Module):
 
     def projection(self, x):
         return self.projection(x)
+
+
+class Llama1Transformer(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        d_ff: int,  # hidden states
+        vocab_size: int,
+        seq_len: int,
+        norm_eps: int = 1e-8,
+        N: int = 6,
+        n_heads: int = 8,
+        dropout: float = 0.1,
+        multiple_of: int = 256,
+        ffn_dim_multiplier: Optional[float] = None,
+    ):
+        self.vocab_size = vocab_size
+        self.d_model = d_model
+        self.d_ff = d_ff
+        self.seq_len = seq_len
+        self.eps = norm_eps
+        self.n_layers = N
+        self.n_heads = n_heads
+        self.head_dim = self.d_model // self.n_heads
+        self.multiple_of = multiple_of
+        self.ffn_dim_multiplier = ffn_dim_multiplier
+
+        # token embedding
+        self.embed = Embeddings(self.vocab_size, self.d_model)
+
+        # rms normalization
+        self.norm = RMSNorm(self.d_model, eps=self.eps)
+
+        # N x encoder layers
+        self.layers = nn.ModuleList()
+        for _ in range(self.n_layers):
+            self.layers.append(
+                EncoderBlockLLAMA(
+                    self.d_model,
+                    MultiHeadAttentionLLAMA(self.d_model, self.head_dim, dropout),
+                    FeedForwardBlockLLAMA(
+                        self.d_model,
+                        self.d_ff,
+                        self.ffn_dim_multiplier,
+                        self.multiple_of,
+                    ),
+                    dropout,
+                )
+            )
+
+        # projection layer
+        self.out = nn.Linear(self.d_model, self.vocab_size, bias=False)
+
+        self.freqs_complex = precompute_theta_pos_freqs(self.head_dim, self.seq_len * 2)
+
+    def forward(self, x: torch.Tensor, start_pos: int, mask):
+        _, seq_len = x.shape
+
+        # (batch_size, seq_len) --> (batch_size, seq_len, d_model)
+        h = self.embed(x)
+
+        # retrieve the pairs (m, theta) corresponding to the positions [start_pos, start_pos + seq_len]
+        self.freqs_complex = self.freqs_complex.to(h.device)
+        freqs_complex = self.freqs_complex[start_pos : start_pos + seq_len]
+
+        for layer in self.layers:
+            h = layer(h, mask, freqs_complex)
+
+        h = self.norm(h)
+        out = self.out(h).float()
+        return out
