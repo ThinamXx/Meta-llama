@@ -12,7 +12,8 @@ I am reading these papers:
 ✅ [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)  
 ✅ [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864)  
 ✅ [Self-Attention with Relative Position Representations](https://arxiv.org/pdf/1803.02155.pdf)  
-☑️ [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)
+☑️ [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)  
+✅ [To Fold or Not to Fold: a Necessary and Sufficient Condition on Batch-Normalization Layers Folding](https://arxiv.org/abs/2203.14646)
 
 
 ### **Goals 🚀**

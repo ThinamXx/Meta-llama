@@ -95,6 +95,7 @@ class LayerNormalization(nn.Module):
         self.eps = eps
 
     def forward(self, x):
+        # x: (batch_size, seq_len, features)
         mean = x.mean(dim=-1, keepdim=True)
         std = x.std(dim=-1, keepdim=True)
         return self.gamma * (x - mean) / (std + self.eps) + self.beta
@@ -265,10 +266,10 @@ class MultiHeadAttentionLLAMA(nn.Module):
 
 
 class ResidualConnection(nn.Module):
-    def __init__(self, dropout: float):
+    def __init__(self, features: int, dropout: float):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
-        self.norm = LayerNormalization()
+        self.norm = LayerNormalization(features)
 
     def forward(self, x, sublayer):
         return self.norm(x + self.dropout(sublayer(x)))
@@ -277,6 +278,7 @@ class ResidualConnection(nn.Module):
 class EncoderBlock(nn.Module):
     def __init__(
         self,
+        features: int,
         attention_block: MultiHeadAttention,
         feed_forward_block: FeedForwardBlock,
         dropout: float,
@@ -285,7 +287,7 @@ class EncoderBlock(nn.Module):
         self.attention_block = attention_block
         self.feed_forward_block = feed_forward_block
         self.residual_connection = nn.ModuleList(
-            [ResidualConnection(dropout) for _ in range(2)]
+            [ResidualConnection(features, dropout) for _ in range(2)]
         )
 
     def forward(self, x, src_mask):
@@ -296,14 +298,37 @@ class EncoderBlock(nn.Module):
         return x
 
 
+class EncoderBlockLLAMA(nn.Module):
+    def __init__(
+        self,
+        attention_block: MultiHeadAttentionLLAMA,
+        feed_forward_block: FeedForwardBlockLLAMA,
+        dropout: float,
+    ):
+        super().__init__()
+        self.attention_block = attention_block
+        self.feed_forward_block = feed_forward_block
+
+        # normalization before attention block and feed forward block
+        self.attention_block_norm = RMSNorm(attention_block.d_model, eps=1e-5)
+        self.feed_forward_block_norm = RMSNorm(
+            feed_forward_block.w_2.out_features, eps=1e-5
+        )
+
+    def forward(self, x, mask, freqs_complex):
+        # TODO: implement forward method for EncoderBlockLLAMA
+        pass
+
+
 class Encoder(nn.Module):
     def __init__(
         self,
+        features: int,
         layers: nn.ModuleList,
     ):
         super().__init__()
         self.layers = layers
-        self.norm = LayerNormalization()
+        self.norm = LayerNormalization(features)
 
     def forward(self, x, src_mask):
         for layer in self.layers:
@@ -314,6 +339,7 @@ class Encoder(nn.Module):
 class DecoderBlock(nn.Module):
     def __init__(
         self,
+        features: int,
         attention_block: MultiHeadAttention,
         cross_attention_block: MultiHeadAttention,
         feed_forward_block: FeedForwardBlock,
@@ -324,7 +350,7 @@ class DecoderBlock(nn.Module):
         self.cross_attention_block = cross_attention_block
         self.feed_forward_block = feed_forward_block
         self.residual_connection = nn.ModuleList(
-            [ResidualConnection(dropout) for _ in range(3)]
+            [ResidualConnection(features, dropout) for _ in range(3)]
         )
 
     def forward(self, x, encoder_output, src_mask, tgt_mask):
@@ -342,10 +368,10 @@ class DecoderBlock(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, layers: nn.ModuleList):
+    def __init__(self, features: int, layers: nn.ModuleList):
         super().__init__()
         self.layers = layers
-        self.norm = LayerNormalization()
+        self.norm = LayerNormalization(features)
 
     def forward(self, x, encoder_output, src_mask, tgt_mask):
         for layer in self.layers:
