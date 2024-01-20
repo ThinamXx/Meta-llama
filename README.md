@@ -4,7 +4,7 @@
 
 ### **Papers📄**  
 I am reading these papers:  
-☑️ [LLaMA: Open and Efficient Foundation Language Models](https://ai.meta.com/research/publications/llama-open-and-efficient-foundation-language-models/)  
+✅ [LLaMA: Open and Efficient Foundation Language Models](https://ai.meta.com/research/publications/llama-open-and-efficient-foundation-language-models/)  
 ☑️ [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/)  
 ☑️ [OPT: Open Pre-trained Transformer Language Models](https://arxiv.org/abs/2205.01068)  
 ✅ [Attention Is All You Need](https://arxiv.org/abs/1706.03762)  
@@ -41,6 +41,10 @@ I am reading these papers:
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
 ☑️ Adding ...
+
+
+### **Blog Posts:**  
+✅ [LLAMA: OPEN AND EFFICIENT LLM NOTES](https://thinamxx.github.io/thinam.github.io/posts/Llama1/llama1.html)  
 
 
 ### **Related GitHub Works:**
