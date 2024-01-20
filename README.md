@@ -12,7 +12,8 @@ I am reading these papers:
 ✅ [GLU Variants Improve Transformer](https://arxiv.org/abs/2002.05202)  
 ✅ [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864)  
 ✅ [Self-Attention with Relative Position Representations](https://arxiv.org/pdf/1803.02155.pdf)  
-☑️ [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)
+☑️ [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)  
+✅ [To Fold or Not to Fold: a Necessary and Sufficient Condition on Batch-Normalization Layers Folding](https://arxiv.org/abs/2203.14646)
 
 
 ### **Goals 🚀**
@@ -34,7 +35,9 @@ I am reading these papers:
 ✅ Understand the concept and implementation of feed-forward network with SwiGLU activation.  
 ✅ Understand the concept of absolute positional encoding.  
 ✅ Understand the concept of relative positional encoding.  
-✅ Understand and implement the rotary positional embedding.   
+✅ Understand and implement the rotary positional embedding.  
+✅ Understand and implement the transformer architecture.  
+✅ Understand and implement the original Llama (1) architecture.  
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
 ☑️ Adding ...
@@ -46,7 +49,8 @@ I am reading these papers:
 🌐 [llama](https://github.com/facebookresearch/llama) - Facebook's LLaMA implementation.  
 🌐 [tensor2tensor](https://github.com/tensorflow/tensor2tensor) - Google's transformer implementation.  
 🌐 [rmsnorm](https://github.com/bzhangGo/rmsnorm) - RMSNorm implementation.  
-🌐 [roformer](https://github.com/ZhuiyiTechnology/roformer) - Rotary Tranformer implementation.
+🌐 [roformer](https://github.com/ZhuiyiTechnology/roformer) - Rotary Tranformer implementation.  
+🌐 [xformers](https://github.com/facebookresearch/xformers) - Facebook's implementation.
 
 
 ### **Articles:**

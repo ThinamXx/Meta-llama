@@ -95,6 +95,7 @@ class LayerNormalization(nn.Module):
         self.eps = eps
 
     def forward(self, x):
+        # x: (batch_size, seq_len, features)
         mean = x.mean(dim=-1, keepdim=True)
         std = x.std(dim=-1, keepdim=True)
         return self.gamma * (x - mean) / (std + self.eps) + self.beta
@@ -216,11 +217,59 @@ class MultiHeadAttention(nn.Module):
         return x
 
 
+class MultiHeadAttentionLLAMA(nn.Module):
+    def __init__(self, d_model: int, h: int, dropout: float):
+        super().__init__()
+        self.d_model = d_model
+        self.h = h
+        assert d_model % h == 0, "d_model must be divisible by h"
+
+        self.d_k = d_model // h
+        self.w_q = nn.Linear(d_model, d_model)  # W_q
+        self.w_k = nn.Linear(d_model, d_model)  # W_k
+        self.w_v = nn.Linear(d_model, d_model)  # W_v
+        self.w_o = nn.Linear(d_model, d_model)  # W_o
+
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, q, k, v, mask, freqs_complex: torch.Tensor):
+        query = self.w_q(q)  # (batch_size, seq_len, d_model)
+        key = self.w_k(k)  # (batch_size, seq_len, d_model)
+        value = self.w_v(v)  # (batch_size, seq_len, d_model)
+
+        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, h, d_k)
+        query = query.view(query.shape[0], query.shape[1], self.h, self.d_k)
+        key = key.view(key.shape[0], key.shape[1], self.h, self.d_k)
+        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, h, d_k) --> (batch_size, h, seq_len, d_k)
+        value = value.view(value.shape[0], value.shape[1], self.h, self.d_k).transpose(
+            1, 2
+        )
+
+        # using rotary positional embeddings to rotate query and key
+        # (batch_size, seq_len, h, d_k) --> (batch_size, h, seq_len, d_k)
+        query = apply_rotary_pos_emb(
+            query, freqs_complex=freqs_complex, device=query.device
+        ).transpose(1, 2)
+        key = apply_rotary_pos_emb(
+            key, freqs_complex=freqs_complex, device=key.device
+        ).transpose(1, 2)
+
+        x, self.attention_score = MultiHeadAttention.attention(
+            query, key, value, mask, self.dropout
+        )
+
+        # (batch_size, h, seq_len, d_k) --> (batch_size, seq_len, h, d_k) --> (batch_size, seq_len, d_model)
+        x = x.transpose(1, 2).contiguous().view(x.shape[0], -1, self.h * self.d_k)
+
+        x = self.w_o(x)  # (batch_size, seq_len, d_model)
+        return x
+
+
 class ResidualConnection(nn.Module):
-    def __init__(self, dropout: float):
+    def __init__(self, features: int, dropout: float):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
-        self.norm = LayerNormalization()
+        self.norm = LayerNormalization(features)
 
     def forward(self, x, sublayer):
         return self.norm(x + self.dropout(sublayer(x)))
@@ -229,6 +278,7 @@ class ResidualConnection(nn.Module):
 class EncoderBlock(nn.Module):
     def __init__(
         self,
+        features: int,
         attention_block: MultiHeadAttention,
         feed_forward_block: FeedForwardBlock,
         dropout: float,
@@ -237,7 +287,7 @@ class EncoderBlock(nn.Module):
         self.attention_block = attention_block
         self.feed_forward_block = feed_forward_block
         self.residual_connection = nn.ModuleList(
-            [ResidualConnection(dropout) for _ in range(2)]
+            [ResidualConnection(features, dropout) for _ in range(2)]
         )
 
     def forward(self, x, src_mask):
@@ -248,14 +298,44 @@ class EncoderBlock(nn.Module):
         return x
 
 
+class EncoderBlockLLAMA(nn.Module):
+    def __init__(
+        self,
+        features: int,
+        attention_block: MultiHeadAttentionLLAMA,
+        feed_forward_block: FeedForwardBlockLLAMA,
+        dropout: float,
+    ):
+        super().__init__()
+        self.attention_block = attention_block
+        self.feed_forward_block = feed_forward_block
+
+        # normalization before attention block and feed forward block
+        self.attention_block_norm = RMSNorm(features, eps=1e-5)
+        self.feed_forward_block_norm = RMSNorm(features, eps=1e-5)
+
+    def forward(self, x, mask, freqs_complex):
+        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
+        h = x + self.attention_block.forward(
+            self.attention_block_norm(x),
+            self.attention_block_norm(x),
+            self.attention_block_norm(x),
+            mask,
+            freqs_complex,
+        )
+        x = h + self.feed_forward_block.forward(self.feed_forward_block_norm(h))
+        return x
+
+
 class Encoder(nn.Module):
     def __init__(
         self,
+        features: int,
         layers: nn.ModuleList,
     ):
         super().__init__()
         self.layers = layers
-        self.norm = LayerNormalization()
+        self.norm = LayerNormalization(features)
 
     def forward(self, x, src_mask):
         for layer in self.layers:
@@ -266,6 +346,7 @@ class Encoder(nn.Module):
 class DecoderBlock(nn.Module):
     def __init__(
         self,
+        features: int,
         attention_block: MultiHeadAttention,
         cross_attention_block: MultiHeadAttention,
         feed_forward_block: FeedForwardBlock,
@@ -276,7 +357,7 @@ class DecoderBlock(nn.Module):
         self.cross_attention_block = cross_attention_block
         self.feed_forward_block = feed_forward_block
         self.residual_connection = nn.ModuleList(
-            [ResidualConnection(dropout) for _ in range(3)]
+            [ResidualConnection(features, dropout) for _ in range(3)]
         )
 
     def forward(self, x, encoder_output, src_mask, tgt_mask):
@@ -294,10 +375,10 @@ class DecoderBlock(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, layers: nn.ModuleList):
+    def __init__(self, features: int, layers: nn.ModuleList):
         super().__init__()
         self.layers = layers
-        self.norm = LayerNormalization()
+        self.norm = LayerNormalization(features)
 
     def forward(self, x, encoder_output, src_mask, tgt_mask):
         for layer in self.layers:
@@ -346,3 +427,74 @@ class Transformer(nn.Module):
 
     def projection(self, x):
         return self.projection(x)
+
+
+class Llama1Transformer(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        d_ff: int,  # hidden states
+        vocab_size: int,
+        seq_len: int,
+        norm_eps: int = 1e-8,
+        N: int = 6,
+        n_heads: int = 8,
+        dropout: float = 0.1,
+        multiple_of: int = 256,
+        ffn_dim_multiplier: Optional[float] = None,
+    ):
+        self.vocab_size = vocab_size
+        self.d_model = d_model
+        self.d_ff = d_ff
+        self.seq_len = seq_len
+        self.eps = norm_eps
+        self.n_layers = N
+        self.n_heads = n_heads
+        self.head_dim = self.d_model // self.n_heads
+        self.multiple_of = multiple_of
+        self.ffn_dim_multiplier = ffn_dim_multiplier
+
+        # token embedding
+        self.embed = Embeddings(self.vocab_size, self.d_model)
+
+        # rms normalization
+        self.norm = RMSNorm(self.d_model, eps=self.eps)
+
+        # N x encoder layers
+        self.layers = nn.ModuleList()
+        for _ in range(self.n_layers):
+            self.layers.append(
+                EncoderBlockLLAMA(
+                    self.d_model,
+                    MultiHeadAttentionLLAMA(self.d_model, self.head_dim, dropout),
+                    FeedForwardBlockLLAMA(
+                        self.d_model,
+                        self.d_ff,
+                        self.ffn_dim_multiplier,
+                        self.multiple_of,
+                    ),
+                    dropout,
+                )
+            )
+
+        # projection layer
+        self.out = nn.Linear(self.d_model, self.vocab_size, bias=False)
+
+        self.freqs_complex = precompute_theta_pos_freqs(self.head_dim, self.seq_len * 2)
+
+    def forward(self, x: torch.Tensor, mask, start_pos: int = 0):
+        _, seq_len = x.shape
+
+        # (batch_size, seq_len) --> (batch_size, seq_len, d_model)
+        h = self.embed(x)
+
+        # retrieve the pairs (m, theta) corresponding to the positions [start_pos, start_pos + seq_len]
+        self.freqs_complex = self.freqs_complex.to(h.device)
+        freqs_complex = self.freqs_complex[start_pos : start_pos + seq_len]
+
+        for layer in self.layers:
+            h = layer(h, mask, freqs_complex)
+
+        h = self.norm(h)
+        out = self.out(h).float()
+        return out
