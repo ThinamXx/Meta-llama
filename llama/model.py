@@ -482,7 +482,7 @@ class Llama1Transformer(nn.Module):
 
         self.freqs_complex = precompute_theta_pos_freqs(self.head_dim, self.seq_len * 2)
 
-    def forward(self, x: torch.Tensor, start_pos: int, mask):
+    def forward(self, x: torch.Tensor, mask, start_pos: int = 0):
         _, seq_len = x.shape
 
         # (batch_size, seq_len) --> (batch_size, seq_len, d_model)

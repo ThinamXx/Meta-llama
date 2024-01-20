@@ -35,7 +35,9 @@ I am reading these papers:
 ✅ Understand the concept and implementation of feed-forward network with SwiGLU activation.  
 ✅ Understand the concept of absolute positional encoding.  
 ✅ Understand the concept of relative positional encoding.  
-✅ Understand and implement the rotary positional embedding.   
+✅ Understand and implement the rotary positional embedding.  
+✅ Understand and implement the transformer architecture.  
+✅ Understand and implement the original Llama (1) architecture.  
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
 ☑️ Adding ...
