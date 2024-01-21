@@ -13,7 +13,9 @@ I am reading these papers:
 ✅ [RoFormer: Enhanced Transformer with Rotary Position Embedding](https://arxiv.org/abs/2104.09864)  
 ✅ [Self-Attention with Relative Position Representations](https://arxiv.org/pdf/1803.02155.pdf)  
 ☑️ [BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding](https://arxiv.org/abs/1810.04805)  
-✅ [To Fold or Not to Fold: a Necessary and Sufficient Condition on Batch-Normalization Layers Folding](https://arxiv.org/abs/2203.14646)
+✅ [To Fold or Not to Fold: a Necessary and Sufficient Condition on Batch-Normalization Layers Folding](https://arxiv.org/abs/2203.14646)  
+☑️ [Fast Transformer Decoding: One Write-Head is All You Need](https://arxiv.org/abs/1911.02150)  
+☑️ [GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints](https://arxiv.org/abs/2305.13245)
 
 
 ### **Goals 🚀**
@@ -37,7 +39,8 @@ I am reading these papers:
 ✅ Understand the concept of relative positional encoding.  
 ✅ Understand and implement the rotary positional embedding.  
 ✅ Understand and implement the transformer architecture.  
-✅ Understand and implement the original Llama (1) architecture.  
+✅ Understand and implement the original Llama (1) architecture.   
+☑️ Understand the concept of multi-query attention with single KV projection.   
 ☑️ Understand and implement grouped query attention from scratch.  
 ☑️ Understand and implement the concept of KV cache.   
 ☑️ Adding ...
