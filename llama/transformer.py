@@ -17,7 +17,7 @@ class Embeddings(nn.Module):
     """
 
     def __init__(self, vocab_size: int, d_model: int):
-        super().__init()
+        super().__init__()
         self.vocab_size = vocab_size
         self.d_model = d_model
         self.embed = nn.Embedding(vocab_size, d_model)

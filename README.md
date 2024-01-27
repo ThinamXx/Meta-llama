@@ -44,7 +44,7 @@ I am reading these papers:
 ✅ Understand the concept of multi-query attention with single KV projection.   
 ✅ Understand and implement grouped query attention from scratch.  
 ✅ Understand and implement the concept of KV cache.  
-✅ Understand and implement the concept of Llama2 architecture.
+✅ Understand and implement the concept of Llama2 architecture.  
 ☑️ Download the checkpoints of Llama2 and inspect the inference code and working.  
 ☑️ Adding ...
 

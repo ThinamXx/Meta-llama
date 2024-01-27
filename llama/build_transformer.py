@@ -1,4 +1,4 @@
-from llama.transformer import (
+from transformer import (
     Embeddings,
     PositionalEncoding,
     Encoder,
@@ -47,7 +47,7 @@ def build_transformer(
                 )
                 for _ in range(n_layers)
             ]
-        )
+        ),
     )
     decoder = Decoder(
         d_model,
@@ -62,7 +62,7 @@ def build_transformer(
                 )
                 for _ in range(n_layers)
             ]
-        )
+        ),
     )
 
     projection_layer = ProjectionBlock(d_model, tgt_vocab_size)
@@ -81,3 +81,18 @@ def build_transformer(
             nn.init.xavier_uniform_(p)
 
     return transformer
+
+
+if __name__ == "__main__":
+    transformer = build_transformer(
+        src_vocab_size=100,
+        tgt_vocab_size=10,
+        d_model=512,
+        d_ff=2048,
+        src_seq_len=512,
+        tgt_seq_len=512,
+        dropout=0.1,
+        n_layers=8,
+        n_heads=8,
+    )
+    print("Model built successfully!")
