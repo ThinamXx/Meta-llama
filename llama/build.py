@@ -1,4 +1,4 @@
-from model import (
+from llama.transformer import (
     Embeddings,
     PositionalEncoding,
     Encoder,

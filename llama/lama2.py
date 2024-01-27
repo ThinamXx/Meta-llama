@@ -1,3 +1,6 @@
+# This is the implementation of the LLAMA2 model from the 
+# paper: Llama2: Open Foundation and Fine-Tuned Chat Models
+
 import math
 
 import torch
@@ -286,9 +289,8 @@ class TransformerBlock(nn.Module):
     def __init__(
         self,
         features: int,
-        attention_block: MultiHeadAttentionLLAMA,
+        attention_block: GroupedQueryAttentionLLAMA,
         feed_forward_block: FeedForwardBlock,
-        dropout: float,
     ):
         super().__init__()
         self.attention_block = attention_block
@@ -298,14 +300,15 @@ class TransformerBlock(nn.Module):
         self.attention_block_norm = RMSNorm(features, eps=1e-5)
         self.feed_forward_block_norm = RMSNorm(features, eps=1e-5)
 
-    def forward(self, x, mask, freqs_complex):
+    def forward(
+        self, x: torch.Tensor, start_pos: int, freqs_complex: torch.Tensor, mask
+    ):
         # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
         h = x + self.attention_block.forward(
             self.attention_block_norm(x),
-            self.attention_block_norm(x),
-            self.attention_block_norm(x),
-            mask,
-            freqs_complex,
+            freqs_complex=freqs_complex,
+            start_pos=start_pos,
+            mask=mask,
         )
         x = h + self.feed_forward_block.forward(self.feed_forward_block_norm(h))
         return x
@@ -321,20 +324,23 @@ class Transformer(nn.Module):
         norm_eps: int = 1e-8,
         N: int = 6,
         n_heads: int = 8,
-        dropout: float = 0.1,
+        n_kv_heads: Optional[int] = None,
         multiple_of: int = 256,
         ffn_dim_multiplier: Optional[float] = None,
+        batch_size: int = 32,
     ):
         self.vocab_size = vocab_size
         self.d_model = d_model
-        self.d_ff = d_ff
+        self.head_dim = d_ff
         self.seq_len = seq_len
         self.eps = norm_eps
         self.n_layers = N
         self.n_heads = n_heads
+        self.n_kv_heads = n_heads if n_kv_heads is None else n_kv_heads
         self.head_dim = self.d_model // self.n_heads
         self.multiple_of = multiple_of
         self.ffn_dim_multiplier = ffn_dim_multiplier
+        self.batch_size = batch_size
 
         # token embedding
         self.embed = Embeddings(self.vocab_size, self.d_model)
@@ -348,14 +354,19 @@ class Transformer(nn.Module):
             self.layers.append(
                 TransformerBlock(
                     self.d_model,
-                    MultiHeadAttentionLLAMA(self.d_model, self.head_dim, dropout),
+                    GroupedQueryAttentionLLAMA(
+                        self.d_model,
+                        self.n_heads,
+                        self.n_kv_heads,
+                        self.batch_size,
+                        self.seq_len,
+                    ),
                     FeedForwardBlock(
                         self.d_model,
-                        self.d_ff,
+                        self.head_dim,
                         self.ffn_dim_multiplier,
                         self.multiple_of,
                     ),
-                    dropout,
                 )
             )
 
@@ -364,7 +375,7 @@ class Transformer(nn.Module):
 
         self.freqs_complex = precompute_theta_pos_freqs(self.head_dim, self.seq_len * 2)
 
-    def forward(self, x: torch.Tensor, mask, start_pos: int = 0):
+    def forward(self, x: torch.Tensor, mask, start_pos):
         _, seq_len = x.shape
 
         # (batch_size, seq_len) --> (batch_size, seq_len, d_model)
@@ -375,7 +386,7 @@ class Transformer(nn.Module):
         freqs_complex = self.freqs_complex[start_pos : start_pos + seq_len]
 
         for layer in self.layers:
-            h = layer(h, mask, freqs_complex)
+            h = layer(h, start_pos, freqs_complex, mask)
 
         h = self.norm(h)
         out = self.out(h).float()
