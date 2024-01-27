@@ -38,6 +38,21 @@ def apply_rotary_pos_emb(x: torch.Tensor, freqs_complex: torch.Tensor, device: s
     return x_out.type_as(x).to(device)
 
 
+def repeat_kv_heads(x: torch.Tensor, reps: int):
+    batch_size, seq_len, n_kv_heads, head_dim = x.shape
+
+    if reps == 1:
+        return x
+    return (
+        # (batch_size, seq_len_kv, n_kv_heads, 1, head_dim)
+        x[:, :, :, None, :]
+        # (batch_size, seq_len_kv, n_kv_heads, reps, head_dim) --> (batch_size, seq_len_kv, n_kv_heads * reps, head_dim)
+        .expand(batch_size, seq_len, n_kv_heads, reps, head_dim).reshape(
+            batch_size, seq_len, n_kv_heads * reps, head_dim
+        )
+    )
+
+
 class Embeddings(nn.Module):
     """Construct the embeddings.
 
@@ -107,7 +122,7 @@ class FeedForwardBlock(nn.Module):
         return x
 
 
-class MultiHeadAttention(nn.Module):
+class MultiHeadAttentionLLAMA(nn.Module):
     def __init__(self, d_model: int, h: int, dropout: float):
         super().__init__()
         self.d_model = d_model
@@ -136,46 +151,6 @@ class MultiHeadAttention(nn.Module):
         # (batch_size, h, seq_len, seq_len) @ (batch_size, h, seq_len, d_k) --> (batch_size, h, seq_len, d_k)
         return (attention_scores @ value), attention_scores
 
-    def forward(self, q, k, v, mask):
-        query = self.w_q(q)  # (batch_size, seq_len, d_model)
-        key = self.w_k(k)  # (batch_size, seq_len, d_model)
-        value = self.w_v(v)  # (batch_size, seq_len, d_model)
-
-        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, h, d_k) --> (batch_size, h, seq_len, d_k)
-        query = query.view(query.shape[0], query.shape[1], self.h, self.d_k).transpose(
-            1, 2
-        )
-        key = key.view(key.shape[0], key.shape[1], self.h, self.d_k).transpose(1, 2)
-        value = value.view(value.shape[0], value.shape[1], self.h, self.d_k).transpose(
-            1, 2
-        )
-
-        x, self.attention_score = MultiHeadAttention.attention(
-            query, key, value, mask, self.dropout
-        )
-
-        # (batch_size, h, seq_len, d_k) --> (batch_size, seq_len, h, d_k) --> (batch_size, seq_len, d_model)
-        x = x.transpose(1, 2).contiguous().view(x.shape[0], -1, self.h * self.d_k)
-
-        x = self.w_o(x)  # (batch_size, seq_len, d_model)
-        return x
-
-
-class MultiHeadAttentionLLAMA(nn.Module):
-    def __init__(self, d_model: int, h: int, dropout: float):
-        super().__init__()
-        self.d_model = d_model
-        self.h = h
-        assert d_model % h == 0, "d_model must be divisible by h"
-
-        self.d_k = d_model // h
-        self.w_q = nn.Linear(d_model, d_model)  # W_q
-        self.w_k = nn.Linear(d_model, d_model)  # W_k
-        self.w_v = nn.Linear(d_model, d_model)  # W_v
-        self.w_o = nn.Linear(d_model, d_model)  # W_o
-
-        self.dropout = nn.Dropout(dropout)
-
     def forward(self, q, k, v, mask, freqs_complex: torch.Tensor):
         query = self.w_q(q)  # (batch_size, seq_len, d_model)
         key = self.w_k(k)  # (batch_size, seq_len, d_model)
@@ -198,7 +173,7 @@ class MultiHeadAttentionLLAMA(nn.Module):
             key, freqs_complex=freqs_complex, device=key.device
         ).transpose(1, 2)
 
-        x, self.attention_score = MultiHeadAttention.attention(
+        x, self.attention_score = MultiHeadAttentionLLAMA.attention(
             query, key, value, mask, self.dropout
         )
 
@@ -207,6 +182,104 @@ class MultiHeadAttentionLLAMA(nn.Module):
 
         x = self.w_o(x)  # (batch_size, seq_len, d_model)
         return x
+
+
+class GroupedQueryAttentionLLAMA(nn.Module):
+    def __init__(
+        self,
+        d_model: int,
+        n_heads: int,
+        n_kv_heads: Optional[int],
+        batch_size: int,
+        seq_len: int,
+    ):
+        super().__init__()
+        self.n_query_heads = n_heads
+        self.n_kv_heads = n_kv_heads if n_kv_heads is not None else n_heads
+        self.reps = self.n_query_heads // self.n_kv_heads
+        self.head_dim = d_model // n_heads
+
+        self.w_q = nn.Linear(d_model, n_heads * self.head_dim, bias=False)
+        self.w_k = nn.Linear(d_model, self.n_kv_heads * self.head_dim, bias=False)
+        self.w_v = nn.Linear(d_model, self.n_kv_heads * self.head_dim, bias=False)
+        self.w_o = nn.Linear(n_heads * self.head_dim, d_model, bias=False)
+
+        self.cache_k = torch.zeros(
+            batch_size, seq_len, self.n_kv_heads, self.head_dim
+        ).cuda()
+        self.cache_v = torch.zeros(
+            batch_size, seq_len, self.n_kv_heads, self.head_dim
+        ).cuda()
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        freqs_complex: torch.Tensor,
+        start_pos: int,
+        mask: Optional[torch.Tensor] = None,
+    ):
+        batch_size, seq_len, _ = x.shape
+
+        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, n_heads * head_dim)
+        query = self.w_q(x)
+        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, n_kv_heads * head_dim)
+        key = self.w_k(x)
+        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, n_kv_heads * head_dim)
+        value = self.w_v(x)
+
+        # (batch_size, seq_len, n_heads * head_dim) --> (batch_size, seq_len, n_heads, head_dim)
+        query = query.view(batch_size, seq_len, self.n_query_heads, self.head_dim)
+        # (batch_size, seq_len, n_kv_heads * head_dim) --> (batch_size, seq_len, n_kv_heads, head_dim)
+        key = key.view(batch_size, seq_len, self.n_kv_heads, self.head_dim)
+        # (batch_size, seq_len, n_kv_heads * head_dim) --> (batch_size, seq_len, n_kv_heads, head_dim)
+        value = value.view(batch_size, seq_len, self.n_kv_heads, self.head_dim)
+
+        # apply rotary positional embeddings to query and key
+        # (batch_size, seq_len, n_heads, head_dim) --> (batch_size, seq_len, n_heads, head_dim)
+        query = apply_rotary_pos_emb(
+            query, freqs_complex=freqs_complex, device=x.device
+        )
+        # (batch_size, seq_len, n_kv_heads, head_dim) --> (batch_size, seq_len, n_kv_heads, head_dim)
+        key = apply_rotary_pos_emb(key, freqs_complex=freqs_complex, device=x.device)
+
+        self.cache_k = self.cache_k.to(query)
+        self.cache_v = self.cache_v.to(query)
+
+        # update the cache with the new key and value
+        self.cache_k[:batch_size, start_pos : start_pos + seq_len] = key
+        self.cache_v[:batch_size, start_pos : start_pos + seq_len] = value
+
+        # (batch_size, seq_len_kv, n_kv_heads, head_dim)
+        keys = self.cache_k[:batch_size, 0 : start_pos + seq_len]
+        values = self.cache_v[:batch_size, 0 : start_pos + seq_len]
+
+        # repeat the keys and values reps times
+        # (batch_size, seq_len_kv, n_kv_heads, head_dim) --> (batch_size, seq_len_kv, n_heads, head_dim)
+        keys = repeat_kv_heads(keys, self.reps)
+        values = repeat_kv_heads(values, self.reps)
+
+        # (batch_size, seq_len, n_heads, head_dim) --> (batch_size, n_heads, seq_len, head_dim)
+        query = query.transpose(1, 2)
+        # (batch_size, seq_len_kv, n_heads, head_dim) --> (batch_size, n_heads, seq_len_kv, head_dim)
+        keys = keys.transpose(1, 2)
+        # (batch_size, seq_len_kv, n_heads, head_dim) --> (batch_size, n_heads, seq_len_kv, head_dim)
+        values = values.transpose(1, 2)
+
+        # (batch_size, n_heads, seq_len, head_dim) @ (batch_size, n_heads, head_dim, seq_len_kv) --> (batch_size, n_heads, seq_len, seq_len_kv)
+        attention_scores = torch.matmul(query, keys.transpose(2, 3)) / math.sqrt(
+            self.head_dim
+        )
+
+        if mask is not None:
+            attention_scores = attention_scores.masked_fill_(mask == 0, -1e9)
+        # (batch_size, n_heads, seq_len, seq_len_kv) --> (batch_size, n_heads, seq_len, seq_len_kv)
+        attention_scores = F.softmax(attention_scores.float(), dim=-1).type_as(query)
+        # (batch_size, n_heads, seq_len, seq_len_kv) @ (batch_size, n_heads, seq_len_kv, head_dim) --> (batch_size, n_heads, seq_len, head_dim)
+        attention = torch.matmul(attention_scores, values)
+        # (batch_size, n_heads, seq_len, head_dim) --> (batch_size, seq_len, n_heads, head_dim)
+        output = attention.transpose(1, 2).contiguous().view(batch_size, seq_len, -1)
+        # (batch_size, seq_len, n_heads * head_dim) --> (batch_size, seq_len, d_model)
+        return self.w_o(output)
 
 
 class TransformerBlock(nn.Module):
