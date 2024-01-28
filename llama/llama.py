@@ -1,4 +1,4 @@
-# This is the implementation of the original LLAMA model 
+# This is the implementation of the original LLAMA model
 # from the paper: LLAMA: Open and Efficient Foundation Language Models
 
 import math

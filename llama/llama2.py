@@ -84,26 +84,27 @@ class Embeddings(nn.Module):
         torch.Tensor: the embedding matrix.
     """
 
-    def __init__(self, vocab_size: int, d_model: int):
+    def __init__(self, args: ModelArgs):
         super().__init__()
-        self.vocab_size = vocab_size
-        self.d_model = d_model
-        self.embed = nn.Embedding(vocab_size, d_model)
+        self.vocab_size = args.vocab_size
+        self.d_model = args.dim
+        self.embed = nn.Embedding(args.vocab_size, args.dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.embed(x) * math.sqrt(self.d_model)
 
 
 class RMSNorm(nn.Module):
-    def __init(self, features: int, eps: float = 1e-8):
+    def __init__(self, args: ModelArgs):
         super().__init__()
-        self.eps = eps
-        self.gamma = nn.Parameter(torch.ones(features))  # mulitplicative parameter
-        self.beta = nn.Parameter(torch.zerso(features))  # additive parameter
+        self.eps = args.norm_eps
+        self.weight = nn.Parameter(torch.ones(args.dim))  # mulitplicative parameter
+
+    def _norm(self, x):
+        return x * torch.rsqrt(x.pow(2).mean(dim=-1, keepdim=True) + self.eps)
 
     def forward(self, x):
-        rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True))
-        return self.gamma * (x) / (rms + self.eps) + self.beta
+        return self.weight(x) * self._norm(x.float()).type_as(x)
 
 
 class FeedForwardBlock(nn.Module):
@@ -118,27 +119,26 @@ class FeedForwardBlock(nn.Module):
 
     def __init__(
         self,
-        d_model: int,
-        d_ff: int,
-        ffn_dim_multiplier: Optional[int],
-        multiple_of: int,
+        args: ModelArgs,
     ):
-        d_ff = 4 * d_model
-        d_ff = int(2 * d_ff / 3)
-        if ffn_dim_multiplier is not None:
-            d_ff = d_ff * ffn_dim_multiplier
-        # make SwiGLU hidden layer size multiple of large power of 2
-        d_ff = multiple_of * ((d_ff * multiple_of - 1) // multiple_of)
+        super().__init__()
 
-        self.w_1 = nn.Linear(d_model, d_ff, bias=False)
-        self.w_2 = nn.Linear(d_ff, d_model, bias=False)
-        self.w_3 = nn.Linear(d_model, d_ff, bias=False)
+        d_ff = 4 * args.dim
+        d_ff = int(2 * d_ff / 3)
+        if args.ffn_dim_multiplier is not None:
+            d_ff = int(d_ff * args.ffn_dim_multiplier)
+        # make SwiGLU hidden layer size multiple of large power of 2
+        d_ff = args.multiple_of * ((d_ff + args.multiple_of - 1) // args.multiple_of)
+
+        self.w1 = nn.Linear(args.dim, d_ff, bias=False)
+        self.w2 = nn.Linear(d_ff, args.dim, bias=False)
+        self.w3 = nn.Linear(args.dim, d_ff, bias=False)
 
     def forward(self, x):
-        swish = F.silu(self.w_1(x))  # (batch_size, seq_len, d_ff)
-        x_v = self.w_3(x)  # (batch_size, seq_len, d_ff)
+        swish = F.silu(self.w1(x))  # (batch_size, seq_len, d_ff)
+        x_v = self.w3(x)  # (batch_size, seq_len, d_ff)
         x = swish * x_v  # (batch_size, seq_len, d_ff)
-        x = self.w_2(x)  # (batch_size, seq_len, d_model)
+        x = self.w2(x)  # (batch_size, seq_len, d_model)
         return x
 
 
@@ -207,28 +207,26 @@ class MultiHeadAttentionLLAMA(nn.Module):
 class GroupedQueryAttentionLLAMA(nn.Module):
     def __init__(
         self,
-        d_model: int,
-        n_heads: int,
-        n_kv_heads: Optional[int],
-        batch_size: int,
-        seq_len: int,
+        args: ModelArgs,
     ):
         super().__init__()
-        self.n_query_heads = n_heads
-        self.n_kv_heads = n_kv_heads if n_kv_heads is not None else n_heads
-        self.reps = self.n_query_heads // self.n_kv_heads
-        self.head_dim = d_model // n_heads
+        self.n_heads_q = args.n_heads
+        self.n_kv_heads = (
+            args.n_kv_heads if args.n_kv_heads is not None else args.n_heads
+        )
+        self.n_rep = self.n_heads_q // self.n_kv_heads
+        self.head_dim = args.dim // args.n_heads
 
-        self.w_q = nn.Linear(d_model, n_heads * self.head_dim, bias=False)
-        self.w_k = nn.Linear(d_model, self.n_kv_heads * self.head_dim, bias=False)
-        self.w_v = nn.Linear(d_model, self.n_kv_heads * self.head_dim, bias=False)
-        self.w_o = nn.Linear(n_heads * self.head_dim, d_model, bias=False)
+        self.wq = nn.Linear(args.dim, args.n_heads * self.head_dim, bias=False)
+        self.wk = nn.Linear(args.dim, self.n_kv_heads * self.head_dim, bias=False)
+        self.wv = nn.Linear(args.dim, self.n_kv_heads * self.head_dim, bias=False)
+        self.wo = nn.Linear(args.n_heads * self.head_dim, args.dim, bias=False)
 
         self.cache_k = torch.zeros(
-            batch_size, seq_len, self.n_kv_heads, self.head_dim
+            args.max_batch_size, args.max_seq_len, self.n_kv_heads, self.head_dim
         ).cuda()
         self.cache_v = torch.zeros(
-            batch_size, seq_len, self.n_kv_heads, self.head_dim
+            args.max_batch_size, args.max_seq_len, self.n_kv_heads, self.head_dim
         ).cuda()
 
     def forward(
@@ -241,14 +239,14 @@ class GroupedQueryAttentionLLAMA(nn.Module):
         batch_size, seq_len, _ = x.shape
 
         # (batch_size, seq_len, d_model) --> (batch_size, seq_len, n_heads * head_dim)
-        query = self.w_q(x)
+        query = self.wq(x)
         # (batch_size, seq_len, d_model) --> (batch_size, seq_len, n_kv_heads * head_dim)
-        key = self.w_k(x)
+        key = self.wk(x)
         # (batch_size, seq_len, d_model) --> (batch_size, seq_len, n_kv_heads * head_dim)
-        value = self.w_v(x)
+        value = self.wv(x)
 
         # (batch_size, seq_len, n_heads * head_dim) --> (batch_size, seq_len, n_heads, head_dim)
-        query = query.view(batch_size, seq_len, self.n_query_heads, self.head_dim)
+        query = query.view(batch_size, seq_len, self.n_heads_q, self.head_dim)
         # (batch_size, seq_len, n_kv_heads * head_dim) --> (batch_size, seq_len, n_kv_heads, head_dim)
         key = key.view(batch_size, seq_len, self.n_kv_heads, self.head_dim)
         # (batch_size, seq_len, n_kv_heads * head_dim) --> (batch_size, seq_len, n_kv_heads, head_dim)
@@ -273,10 +271,10 @@ class GroupedQueryAttentionLLAMA(nn.Module):
         keys = self.cache_k[:batch_size, 0 : start_pos + seq_len]
         values = self.cache_v[:batch_size, 0 : start_pos + seq_len]
 
-        # repeat the keys and values reps times
+        # repeat the keys and values n_rep times
         # (batch_size, seq_len_kv, n_kv_heads, head_dim) --> (batch_size, seq_len_kv, n_heads, head_dim)
-        keys = repeat_kv_heads(keys, self.reps)
-        values = repeat_kv_heads(values, self.reps)
+        keys = repeat_kv_heads(keys, self.n_rep)
+        values = repeat_kv_heads(values, self.n_rep)
 
         # (batch_size, seq_len, n_heads, head_dim) --> (batch_size, n_heads, seq_len, head_dim)
         query = query.transpose(1, 2)
@@ -299,104 +297,75 @@ class GroupedQueryAttentionLLAMA(nn.Module):
         # (batch_size, n_heads, seq_len, head_dim) --> (batch_size, seq_len, n_heads, head_dim)
         output = attention.transpose(1, 2).contiguous().view(batch_size, seq_len, -1)
         # (batch_size, seq_len, n_heads * head_dim) --> (batch_size, seq_len, d_model)
-        return self.w_o(output)
+        return self.wo(output)
 
 
 class TransformerBlock(nn.Module):
     def __init__(
         self,
-        features: int,
-        attention_block: GroupedQueryAttentionLLAMA,
-        feed_forward_block: FeedForwardBlock,
+        args: ModelArgs,
     ):
         super().__init__()
-        self.attention_block = attention_block
-        self.feed_forward_block = feed_forward_block
+        self.attention = GroupedQueryAttentionLLAMA(args)
+        self.feed_forward = FeedForwardBlock(args)
 
         # normalization before attention block and feed forward block
-        self.attention_block_norm = RMSNorm(features, eps=1e-5)
-        self.feed_forward_block_norm = RMSNorm(features, eps=1e-5)
+        self.attention_norm = RMSNorm(args)
+        self.ffn_norm = RMSNorm(args)
 
     def forward(
-        self, x: torch.Tensor, start_pos: int, freqs_complex: torch.Tensor, mask
+        self,
+        x: torch.Tensor,
+        start_pos: int,
+        freqs_complex: torch.Tensor,
+        mask: Optional[torch.Tensor],
     ):
         # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
-        h = x + self.attention_block.forward(
-            self.attention_block_norm(x),
+        h = x + self.attention.forward(
+            self.attention_norm(x),
             freqs_complex=freqs_complex,
             start_pos=start_pos,
             mask=mask,
         )
-        x = h + self.feed_forward_block.forward(self.feed_forward_block_norm(h))
-        return x
+        out = h + self.feed_forward.forward(self.ffn_norm(h))
+        return out
 
 
 class Transformer(nn.Module):
     def __init__(
         self,
-        d_model: int,
-        d_ff: int,  # hidden states
-        vocab_size: int,
-        seq_len: int,
-        norm_eps: int = 1e-8,
-        N: int = 6,
-        n_heads: int = 8,
-        n_kv_heads: Optional[int] = None,
-        multiple_of: int = 256,
-        ffn_dim_multiplier: Optional[float] = None,
-        batch_size: int = 32,
+        args: ModelArgs,
     ):
-        self.vocab_size = vocab_size
-        self.d_model = d_model
-        self.head_dim = d_ff
-        self.seq_len = seq_len
-        self.eps = norm_eps
-        self.n_layers = N
-        self.n_heads = n_heads
-        self.n_kv_heads = n_heads if n_kv_heads is None else n_kv_heads
-        self.head_dim = self.d_model // self.n_heads
-        self.multiple_of = multiple_of
-        self.ffn_dim_multiplier = ffn_dim_multiplier
-        self.batch_size = batch_size
+        super().__init__()
+
+        assert args.vocab_size != -1, "Vocab_size must be specified"
+        self.vocab_size = args.vocab_size
+        self.n_layers = args.n_layers
 
         # token embedding
-        self.embed = Embeddings(self.vocab_size, self.d_model)
-
-        # rms normalization
-        self.norm = RMSNorm(self.d_model, eps=self.eps)
+        self.tok_embeddings = nn.Embedding(args.vocab_size, args.dim)
 
         # N x encoder layers
         self.layers = nn.ModuleList()
         for _ in range(self.n_layers):
-            self.layers.append(
-                TransformerBlock(
-                    self.d_model,
-                    GroupedQueryAttentionLLAMA(
-                        self.d_model,
-                        self.n_heads,
-                        self.n_kv_heads,
-                        self.batch_size,
-                        self.seq_len,
-                    ),
-                    FeedForwardBlock(
-                        self.d_model,
-                        self.head_dim,
-                        self.ffn_dim_multiplier,
-                        self.multiple_of,
-                    ),
-                )
-            )
+            self.layers.append(TransformerBlock(args))
+
+        # rms normalization
+        self.norm = RMSNorm(args)
 
         # projection layer
-        self.out = nn.Linear(self.d_model, self.vocab_size, bias=False)
+        self.output = nn.Linear(args.dim, self.vocab_size, bias=False)
 
-        self.freqs_complex = precompute_theta_pos_freqs(self.head_dim, self.seq_len * 2)
+        self.freqs_complex = precompute_theta_pos_freqs(
+            args.dim // args.n_heads, args.max_seq_len * 2, device=args.device
+        )
 
-    def forward(self, x: torch.Tensor, mask, start_pos):
+    def forward(self, x: torch.Tensor, start_pos, mask: Optional[torch.Tensor]):
         _, seq_len = x.shape
+        assert seq_len == 1, "Only one token can be generated at a time"
 
         # (batch_size, seq_len) --> (batch_size, seq_len, d_model)
-        h = self.embed(x)
+        h = self.tok_embeddings(x)
 
         # retrieve the pairs (m, theta) corresponding to the positions [start_pos, start_pos + seq_len]
         self.freqs_complex = self.freqs_complex.to(h.device)
@@ -406,5 +375,5 @@ class Transformer(nn.Module):
             h = layer(h, start_pos, freqs_complex, mask)
 
         h = self.norm(h)
-        out = self.out(h).float()
-        return out
+        output = self.output(h).float()
+        return output

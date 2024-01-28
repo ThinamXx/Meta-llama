@@ -1,3 +1,7 @@
+import sys
+
+sys.path.append("/home/ubuntu/bin/Meta-llama/llama")
+
 from transformer import (
     Embeddings,
     PositionalEncoding,
