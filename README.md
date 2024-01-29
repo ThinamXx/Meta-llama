@@ -45,6 +45,7 @@ I am reading these papers:
 ✅ Understand and implement grouped query attention from scratch.  
 ✅ Understand and implement the concept of KV cache.  
 ✅ Understand and implement the concept of Llama2 architecture.  
+✅ Test the Llama2 implementation using the checkpoints from Meta.
 ☑️ Download the checkpoints of Llama2 and inspect the inference code and working.  
 ☑️ Adding ...
 
