@@ -1,4 +1,5 @@
 import torch
+from tqdm import tqdm
 from typing import Optional
 from llama2 import Transformer, ModelArgs
 from build.build_llama import Llama
@@ -43,10 +44,63 @@ class LlamaInference(Llama):
         assert (
             max_prompt_len <= self.args.max_seq_len
         ), f"Prompt length {max_prompt_len} exceeds max sequence length {self.args.max_seq_len}"
-        
+
         total_len = min(self.args.max_seq_len, max_prompt_len + max_gen_len)
-        
-        
+
+        # list that contains the generated tokens along with the prompt tokens
+        pad_id = self.tokenizer.pad_id()
+        tokens = torch.full(
+            (batch_size, total_len), pad_id, dtype=torch.long, device=self.args.device
+        )
+        for k, tok in enumerate(prompts_tokens):
+            tokens[k, : len(tok)] = torch.tensor(
+                tok, dtype=torch.long, device=self.args.device
+            )
+
+        # eos token
+        eos_reached = torch.tensor([False] * batch_size, device=self.args.device)
+        prompt_token_mask = (
+            tokens != pad_id
+        )  # true for prompt tokens, false for generated tokens
+        cur_iterator = tqdm(range(1, total_len), desc="Generating tokens")
+
+        for cur_pos in cur_iterator:
+            with torch.no_grad():
+                logits = self.model.forward(tokens[:, cur_pos - 1 : cur_pos], cur_pos)
+            if temperature > 0:
+                probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
+                next_token = self._sample_top_p(probs, top_p)
+            else:
+                # use greedy method
+                next_token = torch.argmax(logits[:, -1], dim=-1)
+
+            next_token = next_token.reshape(-1)
+            # replace the pad tokens with the generated tokens
+            next_token = torch.where(
+                prompt_token_mask[:, cur_pos], tokens[:, cur_pos], next_token
+            )
+            tokens[:, cur_pos] = next_token
+            # eos token reached
+            eos_reached = (~prompt_token_mask[:, cur_pos]) & (
+                next_token == self.tokenizer.eos_id()
+            )
+            if all(eos_reached):
+                break
+
+        # convert tokens to text
+        output_tokens = []
+        output_text = []
+        for prompt_index, current_prompt_tokens in enumerate(tokens.tolist()):
+            # if eos is reached, cut off the generated tokens
+            if self.tokenizer.eos_id() in current_prompt_tokens:
+                eos_idx = current_prompt_tokens.index(self.tokenizer.eos_id())
+                current_prompt_tokens = current_prompt_tokens[:eos_idx]
+            output_tokens.append(current_prompt_tokens)
+            output_text.append(self.tokenizer.decode(current_prompt_tokens))
+
+        return (output_tokens, output_text)
+
+
 if __name__ == "__main__":
     torch.manual_seed(2024)
     allow_cuda = True
