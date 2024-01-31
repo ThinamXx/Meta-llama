@@ -46,12 +46,13 @@ I am reading these papers:
 ✅ Understand and implement the concept of KV cache.  
 ✅ Understand and implement the concept of Llama2 architecture.  
 ✅ Test the Llama2 implementation using the checkpoints from Meta.
-☑️ Download the checkpoints of Llama2 and inspect the inference code and working.  
-☑️ Adding ...
+✅ Download the checkpoints of Llama2 and inspect the inference code and working.  
+☑️ Documentation of the Llama2 implementation and repo. 
 
 
 ### **Blog Posts:**  
 ✅ [LLAMA: OPEN AND EFFICIENT LLM NOTES](https://thinamxx.github.io/thinam.github.io/posts/Llama1/llama1.html)  
+☑️ Add more blog posts.  
 
 
 ### **Related GitHub Works:**
