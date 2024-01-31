@@ -5,7 +5,7 @@
 ### **Papers📄**  
 I am reading these papers:  
 ✅ [LLaMA: Open and Efficient Foundation Language Models](https://ai.meta.com/research/publications/llama-open-and-efficient-foundation-language-models/)  
-☑️ [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/)  
+✅ [Llama 2: Open Foundation and Fine-Tuned Chat Models](https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/)  
 ☑️ [OPT: Open Pre-trained Transformer Language Models](https://arxiv.org/abs/2205.01068)  
 ✅ [Attention Is All You Need](https://arxiv.org/abs/1706.03762)  
 ✅ [Root Mean Square Layer Normalization](https://arxiv.org/abs/1910.07467)  
@@ -45,7 +45,7 @@ I am reading these papers:
 ✅ Understand and implement grouped query attention from scratch.  
 ✅ Understand and implement the concept of KV cache.  
 ✅ Understand and implement the concept of Llama2 architecture.  
-✅ Test the Llama2 implementation using the checkpoints from Meta.
+✅ Test the Llama2 implementation using the checkpoints from Meta.  
 ✅ Download the checkpoints of Llama2 and inspect the inference code and working.  
 ☑️ Documentation of the Llama2 implementation and repo. 
 
