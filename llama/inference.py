@@ -62,14 +62,19 @@ class LlamaInference(nn.Module):
         eos_reached = torch.tensor([False] * batch_size, device=self.args.device)
         prompt_token_mask = (
             tokens != pad_id
-        )  # true for prompt tokens, false for generated tokens
+        )  # true for prompt tokens, false for pad tokens
         cur_iterator = tqdm(range(1, total_len), desc="Generating tokens")
 
         for cur_pos in cur_iterator:
             with torch.no_grad():
-                logits = self.model.forward(
-                    tokens[:, cur_pos - 1 : cur_pos], cur_pos, None
-                )
+                if self.args.use_cache:
+                    # use KV cache for faster inference
+                    logits = self.model.forward(
+                        tokens[:, cur_pos - 1 : cur_pos], cur_pos, None
+                    )
+                else:
+                    logits = self.model.forward(tokens[:, :cur_pos], cur_pos, None)
+
             if temperature > 0:
                 probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
                 next_token = self._sample_top_p(probs, top_p)
@@ -124,7 +129,7 @@ if __name__ == "__main__":
     checkpoints = "/home/ubuntu/bin/Meta-llama/assets"
 
     prompts = [
-        "The quick brown fox jumps over the lazy dog",
+        "The quick brown fox jumps ",
     ]
 
     llama = Llama.build(
@@ -139,7 +144,7 @@ if __name__ == "__main__":
 
     model = LlamaInference(llama.model, llama.tokenizer, llama.args)
 
-    out_tokens, out_text = model.text_completion(prompts, max_gen_len=60)
+    out_tokens, out_text = model.text_completion(prompts, max_gen_len=256)
     assert len(out_text) == len(prompts)
     for i in range(len(out_text)):
         print(out_text[i])

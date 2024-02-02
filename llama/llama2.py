@@ -24,6 +24,7 @@ class ModelArgs:
     max_batch_size: int = 32
     max_seq_len: int = 2048
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    use_cache: bool = False
 
 
 def precompute_theta_pos_freqs(
@@ -210,6 +211,7 @@ class GroupedQueryAttentionLLAMA(nn.Module):
         args: ModelArgs,
     ):
         super().__init__()
+        self.use_cache = args.use_cache
         self.n_heads_q = args.n_heads
         self.n_kv_heads = (
             args.n_kv_heads if args.n_kv_heads is not None else args.n_heads
@@ -260,16 +262,24 @@ class GroupedQueryAttentionLLAMA(nn.Module):
         # (batch_size, seq_len, n_kv_heads, head_dim) --> (batch_size, seq_len, n_kv_heads, head_dim)
         key = apply_rotary_pos_emb(key, freqs_complex=freqs_complex, device=x.device)
 
-        self.cache_k = self.cache_k.to(query)
-        self.cache_v = self.cache_v.to(query)
+        # enable or disable the KV cache
+        if self.use_cache:
+            self.cache_k = self.cache_k.to(query)
+            self.cache_v = self.cache_v.to(query)
 
-        # update the cache with the new key and value
-        self.cache_k[:batch_size, start_pos : start_pos + seq_len] = key
-        self.cache_v[:batch_size, start_pos : start_pos + seq_len] = value
+            # update the cache with the new key and value
+            self.cache_k[:batch_size, start_pos : start_pos + seq_len] = key
+            self.cache_v[:batch_size, start_pos : start_pos + seq_len] = value
 
-        # (batch_size, seq_len_kv, n_kv_heads, head_dim)
-        keys = self.cache_k[:batch_size, 0 : start_pos + seq_len]
-        values = self.cache_v[:batch_size, 0 : start_pos + seq_len]
+            # (batch_size, seq_len_kv, n_kv_heads, head_dim)
+            keys = self.cache_k[:batch_size, 0 : start_pos + seq_len]
+            values = self.cache_v[:batch_size, 0 : start_pos + seq_len]
+
+        else:
+            # since we are not using the cache, we can directly use the key and value
+            # (batch_size, seq_len, n_kv_heads, head_dim)
+            keys = key
+            values = value
 
         # repeat the keys and values n_rep times
         # (batch_size, seq_len_kv, n_kv_heads, head_dim) --> (batch_size, seq_len_kv, n_heads, head_dim)
@@ -362,7 +372,9 @@ class Transformer(nn.Module):
 
     def forward(self, x: torch.Tensor, start_pos, mask: Optional[torch.Tensor]):
         _, seq_len = x.shape
-        assert seq_len == 1, "Only one token can be generated at a time"
+        # we skip the assert statement below because we want to process multiple tokens at a time
+        # when we don't use the KV cache
+        # assert seq_len == 1, "Only one token can be processed at a time"
 
         # (batch_size, seq_len) --> (batch_size, seq_len, d_model)
         h = self.tok_embeddings(x)
