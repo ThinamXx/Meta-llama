@@ -47,7 +47,8 @@ I am reading these papers:
 ✅ Understand and implement the concept of Llama2 architecture.  
 ✅ Test the Llama2 implementation using the checkpoints from Meta.  
 ✅ Download the checkpoints of Llama2 and inspect the inference code and working.  
-☑️ Documentation of the Llama2 implementation and repo. 
+☑️ Documentation of the Llama2 implementation and repo.  
+☑️ Work on implementation of enabling and disabling the KV cache. 
 
 
 ### **Blog Posts:**  

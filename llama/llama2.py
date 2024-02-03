@@ -24,7 +24,7 @@ class ModelArgs:
     max_batch_size: int = 32
     max_seq_len: int = 2048
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
-    use_cache: bool = False
+    use_cache: bool = True
 
 
 def precompute_theta_pos_freqs(
@@ -348,6 +348,7 @@ class Transformer(nn.Module):
     ):
         super().__init__()
 
+        self.args = args
         assert args.vocab_size != -1, "Vocab_size must be specified"
         self.vocab_size = args.vocab_size
         self.n_layers = args.n_layers
@@ -372,16 +373,21 @@ class Transformer(nn.Module):
 
     def forward(self, x: torch.Tensor, start_pos, mask: Optional[torch.Tensor]):
         _, seq_len = x.shape
-        # we skip the assert statement below because we want to process multiple tokens at a time
-        # when we don't use the KV cache
+        # we skip the assert statement below because we want to process multiple tokens at a time.
+        # when we don't use the KV cache.
         # assert seq_len == 1, "Only one token can be processed at a time"
 
         # (batch_size, seq_len) --> (batch_size, seq_len, d_model)
         h = self.tok_embeddings(x)
 
-        # retrieve the pairs (m, theta) corresponding to the positions [start_pos, start_pos + seq_len]
+        # retrieve the pairs (m, theta) corresponding to the positions [start_pos : start_pos + seq_len].
         self.freqs_complex = self.freqs_complex.to(h.device)
-        freqs_complex = self.freqs_complex[start_pos : start_pos + seq_len]
+
+        if self.args.use_cache:
+            freqs_complex = self.freqs_complex[start_pos : start_pos + seq_len]
+
+        else:
+            freqs_complex = self.freqs_complex[:seq_len]
 
         for layer in self.layers:
             h = layer(h, start_pos, freqs_complex, mask)
