@@ -19,6 +19,10 @@ class LlamaInference(nn.Module):
         self.tokenizer = tokenizer
         self.args = model_args
 
+    def causal_mask(self, size):
+        mask = torch.triu(torch.ones(1, size, size), diagonal=1).type(torch.int64)
+        return mask == 0
+
     def text_completion(
         self,
         prompts: list[str],
@@ -62,14 +66,26 @@ class LlamaInference(nn.Module):
         eos_reached = torch.tensor([False] * batch_size, device=self.args.device)
         prompt_token_mask = (
             tokens != pad_id
-        )  # true for prompt tokens, false for generated tokens
-        cur_iterator = tqdm(range(1, total_len), desc="Generating tokens")
+        )  # true for prompt tokens, false for pad tokens.
 
+        cur_iterator = tqdm(range(1, total_len), desc="Generating tokens")
         for cur_pos in cur_iterator:
             with torch.no_grad():
-                logits = self.model.forward(
-                    tokens[:, cur_pos - 1 : cur_pos], cur_pos, None
-                )
+                if self.args.use_cache:
+                    # use KV cache for faster inference.
+                    logits = self.model.forward(
+                        tokens[:, cur_pos - 1 : cur_pos], cur_pos, None
+                    )
+                else:
+                    # the current position is optional in this case.
+                    # we will use positional encoding to the entire sequence.
+                    mask = (tokens[:, :cur_pos] != pad_id).unsqueeze(
+                        0
+                    ).int() & self.causal_mask(tokens[:, :cur_pos].size(1)).to(
+                        self.args.device
+                    )
+                    logits = self.model.forward(tokens[:, :cur_pos], cur_pos, mask)
+
             if temperature > 0:
                 probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
                 next_token = self._sample_top_p(probs, top_p)
@@ -124,7 +140,7 @@ if __name__ == "__main__":
     checkpoints = "/home/ubuntu/bin/Meta-llama/assets"
 
     prompts = [
-        "The quick brown fox jumps over the lazy dog",
+        "I believe that the world is",
     ]
 
     llama = Llama.build(
@@ -139,7 +155,7 @@ if __name__ == "__main__":
 
     model = LlamaInference(llama.model, llama.tokenizer, llama.args)
 
-    out_tokens, out_text = model.text_completion(prompts, max_gen_len=60)
+    out_tokens, out_text = model.text_completion(prompts, max_gen_len=10, temperature=0)
     assert len(out_text) == len(prompts)
     for i in range(len(out_text)):
         print(out_text[i])
