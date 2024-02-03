@@ -299,7 +299,9 @@ class GroupedQueryAttentionLLAMA(nn.Module):
         )
 
         if mask is not None:
-            attention_scores = attention_scores.masked_fill_(mask == 0, -1e9)
+            attention_scores = attention_scores.masked_fill_(
+                mask == 0, value=float("-inf")
+            )
         # (batch_size, n_heads, seq_len, seq_len_kv) --> (batch_size, n_heads, seq_len, seq_len_kv)
         attention_scores = F.softmax(attention_scores.float(), dim=-1).type_as(query)
         # (batch_size, n_heads, seq_len, seq_len_kv) @ (batch_size, n_heads, seq_len_kv, head_dim) --> (batch_size, n_heads, seq_len, head_dim)

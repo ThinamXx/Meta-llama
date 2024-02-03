@@ -19,6 +19,10 @@ class LlamaInference(nn.Module):
         self.tokenizer = tokenizer
         self.args = model_args
 
+    def causal_mask(self, size):
+        mask = torch.triu(torch.ones(1, size, size), diagonal=1).type(torch.int64)
+        return mask == 0
+
     def text_completion(
         self,
         prompts: list[str],
@@ -63,8 +67,8 @@ class LlamaInference(nn.Module):
         prompt_token_mask = (
             tokens != pad_id
         )  # true for prompt tokens, false for pad tokens.
-        cur_iterator = tqdm(range(1, total_len), desc="Generating tokens")
 
+        cur_iterator = tqdm(range(1, total_len), desc="Generating tokens")
         for cur_pos in cur_iterator:
             with torch.no_grad():
                 if self.args.use_cache:
@@ -75,7 +79,12 @@ class LlamaInference(nn.Module):
                 else:
                     # the current position is optional in this case.
                     # we will use positional encoding to the entire sequence.
-                    logits = self.model.forward(tokens[:, :cur_pos], cur_pos, None)
+                    mask = (tokens[:, :cur_pos] != pad_id).unsqueeze(
+                        0
+                    ).int() & self.causal_mask(tokens[:, :cur_pos].size(1)).to(
+                        self.args.device
+                    )
+                    logits = self.model.forward(tokens[:, :cur_pos], cur_pos, mask)
 
             if temperature > 0:
                 probs = torch.softmax(logits[:, -1] / temperature, dim=-1)
@@ -131,7 +140,7 @@ if __name__ == "__main__":
     checkpoints = "/home/ubuntu/bin/Meta-llama/assets"
 
     prompts = [
-        "I believe",
+        "I believe that the world is",
     ]
 
     llama = Llama.build(
@@ -146,7 +155,7 @@ if __name__ == "__main__":
 
     model = LlamaInference(llama.model, llama.tokenizer, llama.args)
 
-    out_tokens, out_text = model.text_completion(prompts, max_gen_len=20, temperature=0)
+    out_tokens, out_text = model.text_completion(prompts, max_gen_len=10, temperature=0)
     assert len(out_text) == len(prompts)
     for i in range(len(out_text)):
         print(out_text[i])

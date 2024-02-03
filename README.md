@@ -48,7 +48,8 @@ I am reading these papers:
 ✅ Test the Llama2 implementation using the checkpoints from Meta.  
 ✅ Download the checkpoints of Llama2 and inspect the inference code and working.  
 ☑️ Documentation of the Llama2 implementation and repo.  
-☑️ Work on implementation of enabling and disabling the KV cache. 
+✅ Work on implementation of enabling and disabling the KV cache.  
+✅ Add the attention mask when disabling the KV cache in Llama2.
 
 
 ### **Blog Posts:**  
