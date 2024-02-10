@@ -54,7 +54,8 @@ I am reading these papers:
 
 ### **Blog Posts:**  
 ✅ [LLAMA: OPEN AND EFFICIENT LLM NOTES](https://thinamxx.github.io/thinam.github.io/posts/Llama1/llama1.html)  
-☑️ Add more blog posts.  
+✅ [UNDERSTANDING KV CACHE](https://thinamxx.github.io/thinam.github.io/posts/KV/kv.html)  
+✅ [GROUPED QUERY ATTENTION (GQA)](https://thinamxx.github.io/thinam.github.io/posts/GQA/gqa.html)
 
 
 ### **Related GitHub Works:**
