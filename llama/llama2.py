@@ -343,6 +343,43 @@ class TransformerBlock(nn.Module):
         return out
 
 
+class ParallelTransformerBlock(nn.Module):
+    """
+    Mentioned in the paper: https://arxiv.org/pdf/2204.02311 at model architecture section.
+    """
+
+    def __init__(
+        self,
+        args: ModelArgs,
+    ):
+        super().__init__()
+        self.attention = GroupedQueryAttentionLLAMA(args)
+        self.feed_forward = FeedForwardBlock(args)
+
+        # normalization before attention block and feed forward block
+        self.rms_norm = RMSNorm(args)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        start_pos: int,
+        freqs_complex: torch.Tensor,
+        mask: Optional[torch.Tensor],
+    ):
+        norm_x = self.rms_norm(x)
+
+        # (batch_size, seq_len, d_model) --> (batch_size, seq_len, d_model)
+        h = x + self.attention.forward(
+            norm_x,
+            freqs_complex=freqs_complex,
+            start_pos=start_pos,
+            mask=mask,
+        )
+
+        out = h + self.feed_forward.forward(norm_x)
+        return out
+
+
 class Transformer(nn.Module):
     def __init__(
         self,
